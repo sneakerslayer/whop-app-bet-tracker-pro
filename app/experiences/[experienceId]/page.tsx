@@ -45,5 +45,5 @@ export default async function ExperiencePage({
 	}
 
 	// Render BetTracker Pro for users with access
-	return <BetTrackerPro />;
+	return <BetTrackerPro userId={userId} experienceId={experienceId} />;
 }

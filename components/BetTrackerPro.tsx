@@ -63,7 +63,12 @@ interface ChartDataPoint {
   roi: number;
 }
 
-export default function BetTrackerPro() {
+interface BetTrackerProProps {
+  userId?: string;
+  experienceId?: string;
+}
+
+export default function BetTrackerPro({ userId, experienceId }: BetTrackerProProps) {
   // State management
   const [activeTab, setActiveTab] = useState('dashboard');
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -75,10 +80,10 @@ export default function BetTrackerPro() {
   const [showAddBet, setShowAddBet] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Mock user context - in real app, get from Whop SDK
+  // Use real user data from props or fallback to mock data
   const currentUser = {
-    whop_user_id: 'user_123',
-    experience_id: 'exp_456'
+    whop_user_id: userId || 'user_123',
+    experience_id: experienceId || 'exp_456'
   };
 
   // Bet form state
