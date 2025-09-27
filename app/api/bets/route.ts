@@ -126,11 +126,18 @@ export async function POST(request: NextRequest) {
       potential_return = stake * (100 / Math.abs(odds_american));
     }
 
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
     // Insert new bet
     const { data: newBet, error } = await supabase
       .from('bets')
       .insert({
-        user_id: user!.id,
+        user_id: user.id,
         whop_experience_id: experience_id,
         sport,
         bet_type,

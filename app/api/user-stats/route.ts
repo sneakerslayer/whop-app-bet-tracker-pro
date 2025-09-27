@@ -51,6 +51,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
     // Get user stats from database
     const { data: stats, error: statsError } = await supabase
       .from('user_stats')
