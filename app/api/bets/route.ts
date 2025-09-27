@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     const { data: newBet, error } = await supabase
       .from('bets')
       .insert({
-        user_id: user.id,
+        user_id: user!.id,
         whop_experience_id: experience_id,
         sport,
         bet_type,
