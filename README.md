@@ -36,3 +36,4 @@ a
 
 For more info, see our docs at https://dev.whop.com/introduction
 # whop-app-bet-tracker-pro
+# whop-app-bet-tracker-pro
