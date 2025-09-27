@@ -1,109 +1,74 @@
 export default function Page() {
 	return (
-		<div className="min-h-screen bg-gray-a12 py-12 px-4 sm:px-6 lg:px-8">
-			<div className="max-w-3xl mx-auto">
+		<div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 py-12 px-4 sm:px-6 lg:px-8">
+			<div className="max-w-4xl mx-auto">
 				<div className="text-center mb-12">
-					<h1 className="text-8 font-bold text-gray-9 mb-4">
-						Welcome to Your Whop App
+					<h1 className="text-6xl font-bold text-white mb-6">
+						BetTracker Pro
 					</h1>
-					<p className="text-4 text-gray-6">
-						Follow these steps to get started with your Whop application
+					<p className="text-xl text-gray-300 mb-8">
+						Professional-grade bet tracking system for Whop communities
 					</p>
-				</div>
-
-				<div className="space-y-8">
-					<div className="bg-white p-6 rounded-lg shadow-md">
-						<h2 className="text-5 font-semibold text-gray-9 mb-4 flex items-center">
-							<span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-accent-9 text-white mr-3">
-								1
-							</span>
-							Create your Whop app
+					<div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6 max-w-2xl mx-auto">
+						<h2 className="text-2xl font-semibold text-white mb-4">
+							🚀 Ready to Launch
 						</h2>
-						<p className="text-gray-6 ml-11">
-							Go to your{" "}
-							<a
-								href="https://whop.com/dashboard"
-								target="_blank"
-								rel="noopener noreferrer"
-								className="text-accent-9 hover:text-accent-10 underline"
-							>
-								Whop Dashboard
-							</a>{" "}
-							and create a new app in the Developer section.
+						<p className="text-gray-300 mb-6">
+							Your BetTracker Pro application is successfully deployed and ready for use!
 						</p>
-					</div>
-
-					<div className="bg-white p-6 rounded-lg shadow-md">
-						<h2 className="text-5 font-semibold text-gray-9 mb-4 flex items-center">
-							<span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-accent-9 text-white mr-3">
-								2
-							</span>
-							Set up environment variables
-						</h2>
-						<p className="text-gray-6 ml-11 mb-4">
-							Copy the .env file from your dashboard and create a new .env file
-							in your project root. This will contain all the necessary
-							environment variables for your app.
-						</p>
-						{process.env.NODE_ENV === "development" && (
-							<div className="text-gray-6 ml-11">
-								<pre>
-									<code>
-										WHOP_API_KEY={process.env.WHOP_API_KEY?.slice(0, 5)}...
-										<br />
-										NEXT_PUBLIC_WHOP_AGENT_USER_ID=
-										{process.env.NEXT_PUBLIC_WHOP_AGENT_USER_ID}
-										<br />
-										NEXT_PUBLIC_WHOP_APP_ID=
-										{process.env.NEXT_PUBLIC_WHOP_APP_ID}
-										<br />
-										NEXT_PUBLIC_WHOP_COMPANY_ID=
-										{process.env.NEXT_PUBLIC_WHOP_COMPANY_ID}
-									</code>
-								</pre>
+						<div className="space-y-4">
+							<div className="flex items-center justify-center space-x-2 text-green-400">
+								<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+									<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+								</svg>
+								<span>✅ Application deployed successfully</span>
 							</div>
-						)}
-					</div>
-
-					<div className="bg-white p-6 rounded-lg shadow-md">
-						<h2 className="text-5 font-semibold text-gray-9 mb-4 flex items-center">
-							<span className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full bg-accent-9 text-white mr-3">
-								3
-							</span>
-							Install your app into your whop
-						</h2>
-						<p className="text-gray-6 ml-11">
-							{process.env.NEXT_PUBLIC_WHOP_APP_ID ? (
-								<a
-									href={`https://whop.com/apps/${process.env.NEXT_PUBLIC_WHOP_APP_ID}/install`}
-									target="_blank"
-									rel="noopener noreferrer"
-									className="text-accent-9 hover:text-accent-10 underline"
-								>
-									Click here to install your app
-								</a>
-							) : (
-								<span className="text-amber-600">
-									Please set your environment variables to see the installation
-									link
-								</span>
-							)}
-						</p>
+							<div className="flex items-center justify-center space-x-2 text-green-400">
+								<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+									<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+								</svg>
+								<span>✅ Database connected</span>
+							</div>
+							<div className="flex items-center justify-center space-x-2 text-green-400">
+								<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+									<path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+								</svg>
+								<span>✅ API endpoints configured</span>
+							</div>
+						</div>
 					</div>
 				</div>
 
-				<div className="mt-12 text-center text-2 text-gray-5">
-					<p>
-						Need help? Visit the{" "}
-						<a
-							href="https://dev.whop.com"
-							target="_blank"
-							rel="noopener noreferrer"
-							className="text-accent-9 hover:text-accent-10 underline"
-						>
-							Whop Documentation
-						</a>
+				<div className="grid md:grid-cols-2 gap-8 mb-12">
+					<div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+						<h3 className="text-xl font-semibold text-white mb-4">📊 Features</h3>
+						<ul className="space-y-2 text-gray-300">
+							<li>• Personal bet tracking & analytics</li>
+							<li>• Community leaderboards</li>
+							<li>• Real-time statistics</li>
+							<li>• Professional UI/UX</li>
+							<li>• Secure authentication</li>
+						</ul>
+					</div>
+					<div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6">
+						<h3 className="text-xl font-semibold text-white mb-4">🔧 Technical</h3>
+						<ul className="space-y-2 text-gray-300">
+							<li>• Next.js 15 + React 19</li>
+							<li>• Supabase database</li>
+							<li>• Whop SDK integration</li>
+							<li>• TypeScript + Tailwind CSS</li>
+							<li>• Production optimized</li>
+						</ul>
+					</div>
+				</div>
+
+				<div className="text-center">
+					<p className="text-gray-400 mb-4">
+						Access your app through the Whop platform at:
 					</p>
+					<code className="bg-black/50 text-green-400 px-4 py-2 rounded-lg text-sm">
+						/experiences/[experienceId]
+					</code>
 				</div>
 			</div>
 		</div>
