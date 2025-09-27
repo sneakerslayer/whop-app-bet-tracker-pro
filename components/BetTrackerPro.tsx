@@ -242,7 +242,13 @@ export default function BetTrackerPro() {
   };
 
   // Components
-  const StatCard = ({ title, value, icon: Icon, color, isLoading = false }) => (
+  const StatCard = ({ title, value, icon: Icon, color, isLoading = false }: {
+    title: string;
+    value: string | number;
+    icon: React.ComponentType<any>;
+    color: 'green' | 'red' | 'blue';
+    isLoading?: boolean;
+  }) => (
     <Card className="bg-white/10 backdrop-blur-md border-white/20">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-gray-200">{title}</CardTitle>
