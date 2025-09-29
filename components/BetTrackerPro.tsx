@@ -22,8 +22,10 @@ interface UserStats {
   net_profit: number;
   current_streak: number;
   units_won: number;
+  units_wagered: number;
   wins: number;
   losses: number;
+  pushes: number;
   pending: number;
 }
 
