@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('Picks POST request body:', JSON.stringify(body, null, 2));
+    
     const {
       whop_user_id,
       experience_id,
@@ -121,6 +123,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!whop_user_id || !experience_id || !sport || !bet_type || !description) {
+      console.log('Missing required fields:', { whop_user_id, experience_id, sport, bet_type, description });
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -128,6 +131,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user from database
+    console.log('Looking for user:', { whop_user_id, experience_id });
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -144,11 +148,14 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user) {
+      console.log('User not found:', { whop_user_id, experience_id });
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
+
+    console.log('Found user:', { id: user.id, is_capper: user.is_capper });
 
     let targetCapperId = user.id;
 
@@ -191,28 +198,32 @@ export async function POST(request: NextRequest) {
     }
 
     // Create new pick
+    console.log('Creating pick with targetCapperId:', targetCapperId);
+    const pickData = {
+      capper_id: targetCapperId,
+      whop_experience_id: experience_id,
+      sport,
+      league,
+      bet_type,
+      description,
+      reasoning,
+      confidence,
+      recommended_odds_american,
+      recommended_odds_decimal,
+      recommended_units,
+      max_bet_amount,
+      access_tier: access_tier || 'public',
+      is_premium: is_premium || false,
+      price,
+      game_time,
+      expires_at,
+      tags
+    };
+    console.log('Pick data:', JSON.stringify(pickData, null, 2));
+    
     const { data: newPick, error } = await supabase
       .from('picks')
-      .insert({
-        capper_id: targetCapperId,
-        whop_experience_id: experience_id,
-        sport,
-        league,
-        bet_type,
-        description,
-        reasoning,
-        confidence,
-        recommended_odds_american,
-        recommended_odds_decimal,
-        recommended_units,
-        max_bet_amount,
-        access_tier: access_tier || 'public',
-        is_premium: is_premium || false,
-        price,
-        game_time,
-        expires_at,
-        tags
-      })
+      .insert(pickData)
       .select(`
         *,
         capper:users!picks_capper_id_fkey(
