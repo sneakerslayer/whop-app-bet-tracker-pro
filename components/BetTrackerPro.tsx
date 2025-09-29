@@ -599,7 +599,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
     </div>
   );
 
-  const AddBetForm = () => {
+  // Memoized form component to prevent re-renders
+  const AddBetForm = React.memo(() => {
     const potentialReturn = calculatePotentialReturn(
       parseFloat(betForm.stake) || 0,
       parseInt(betForm.odds_american) || 0
@@ -765,7 +766,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
         </CardContent>
       </Card>
     );
-  };
+  });
 
   // Loading state
   if (loading) {
