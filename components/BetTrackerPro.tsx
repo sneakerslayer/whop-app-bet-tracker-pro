@@ -455,16 +455,19 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
   const addCapper = async () => {
     setSubmitting(true);
     try {
+      const requestData = {
+        ...capperForm,
+        experience_id: currentUser.experience_id,
+        admin_user_id: currentUser.whop_user_id
+      };
+      console.log('Adding capper with data:', requestData);
+      
       const response = await fetch('/api/admin/cappers', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...capperForm,
-          experience_id: currentUser.experience_id,
-          admin_user_id: currentUser.whop_user_id
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
@@ -520,23 +523,26 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
   const postPickAsCapper = async (capperId?: string) => {
     setSubmitting(true);
     try {
+      const requestData = {
+        ...pickForm,
+        capper_id: capperId, // Only include if admin posting for specific capper
+        whop_user_id: currentUser.whop_user_id,
+        experience_id: currentUser.experience_id,
+        recommended_odds_american: parseInt(pickForm.recommended_odds_american) || null,
+        recommended_units: parseFloat(pickForm.recommended_units.toString()),
+        confidence: parseInt(pickForm.confidence.toString()),
+        max_bet_amount: pickForm.max_bet_amount ? parseFloat(pickForm.max_bet_amount) : null,
+        price: pickForm.price ? parseFloat(pickForm.price) : null,
+        tags: pickForm.tags ? pickForm.tags.split(',').map(t => t.trim()) : []
+      };
+      console.log('Posting pick with data:', requestData);
+      
       const response = await fetch('/api/picks', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...pickForm,
-          capper_id: capperId, // Only include if admin posting for specific capper
-          whop_user_id: currentUser.whop_user_id,
-          experience_id: currentUser.experience_id,
-          recommended_odds_american: parseInt(pickForm.recommended_odds_american) || null,
-          recommended_units: parseFloat(pickForm.recommended_units.toString()),
-          confidence: parseInt(pickForm.confidence.toString()),
-          max_bet_amount: pickForm.max_bet_amount ? parseFloat(pickForm.max_bet_amount) : null,
-          price: pickForm.price ? parseFloat(pickForm.price) : null,
-          tags: pickForm.tags ? pickForm.tags.split(',').map(t => t.trim()) : []
-        }),
+        body: JSON.stringify(requestData),
       });
 
       if (!response.ok) {
