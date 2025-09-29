@@ -139,57 +139,81 @@ export async function POST(request: NextRequest) {
       .eq('whop_experience_id', experience_id)
       .single();
 
-    if (userError) {
-      console.error('Error fetching user:', userError);
+    // Handle user not found vs actual error
+    if (userError && userError.code !== 'PGRST116') { // PGRST116 means no rows found
+      console.error('Database error fetching user:', userError);
       return NextResponse.json(
-        { error: 'Failed to fetch user' },
+        { error: 'Database error' },
         { status: 500 }
       );
     }
 
-    if (!user) {
+    // Create user if not found or if userError indicates no rows found
+    if (!user || userError?.code === 'PGRST116') {
       console.log('User not found, creating user automatically:', { whop_user_id, experience_id });
-      // Create user automatically for testing
-      const { data: newUser, error: createError } = await supabase
-        .from('users')
-        .insert({
-          whop_user_id,
-          whop_experience_id: experience_id,
-          username: whop_user_id,
-          display_name: whop_user_id,
-          is_capper: true // Make them a capper by default for testing
-        })
-        .select()
-        .single();
+      
+      try {
+        const { data: newUser, error: createError } = await supabase
+          .from('users')
+          .insert({
+            whop_user_id,
+            whop_experience_id: experience_id,
+            username: whop_user_id,
+            display_name: whop_user_id,
+            is_capper: true // Make them a capper by default for testing
+          })
+          .select()
+          .single();
 
-      if (createError) {
-        console.error('Error creating user:', createError);
+        if (createError) {
+          console.error('Error creating user:', createError);
+          return NextResponse.json(
+            { error: 'Failed to create user: ' + createError.message },
+            { status: 500 }
+          );
+        }
+
+        // Initialize user stats
+        const { error: statsError } = await supabase
+          .from('user_stats')
+          .insert({
+            user_id: newUser.id,
+            whop_experience_id: experience_id
+          });
+
+        if (statsError) {
+          console.warn('Error creating user stats:', statsError);
+          // Don't fail the whole operation for stats error
+        }
+
+        user = newUser;
+        console.log('Successfully created new user:', { 
+          id: user.id, 
+          is_capper: user.is_capper,
+          whop_user_id: user.whop_user_id 
+        });
+      } catch (err) {
+        console.error('Exception during user creation:', err);
         return NextResponse.json(
-          { error: 'Failed to create user' },
+          { error: 'Failed to create user account' },
           { status: 500 }
         );
       }
-
-      // Initialize user stats
-      await supabase
-        .from('user_stats')
-        .insert({
-          user_id: newUser.id,
-          whop_experience_id: experience_id
-        });
-
-      user = newUser;
-      console.log('Created new user:', { id: user.id, is_capper: user.is_capper });
     }
 
-    console.log('Found user:', { id: user.id, is_capper: user.is_capper, whop_user_id: user.whop_user_id });
+    console.log('Current user status:', { 
+      id: user.id, 
+      is_capper: user.is_capper, 
+      whop_user_id: user.whop_user_id,
+      username: user.username,
+      display_name: user.display_name
+    });
 
-    // If user is not a capper, let's check if they should be one
+    // Ensure user has capper privileges for testing
     if (!user.is_capper) {
-      console.log('User is not a capper, checking if they should be...');
-      // For testing, let's make the current user a capper automatically
-      if (user.whop_user_id === 'user_ey15Seq4GOxYU') {
-        console.log('Making test user a capper automatically');
+      console.log('User is not a capper, making them a capper for testing...');
+      
+      try {
         const { error: updateError } = await supabase
           .from('users')
           .update({ is_capper: true })
@@ -197,10 +221,20 @@ export async function POST(request: NextRequest) {
         
         if (updateError) {
           console.error('Error updating user to capper:', updateError);
+          return NextResponse.json(
+            { error: 'Failed to grant capper privileges: ' + updateError.message },
+            { status: 500 }
+          );
         } else {
           console.log('Successfully updated user to capper');
           user.is_capper = true;
         }
+      } catch (err) {
+        console.error('Exception during capper update:', err);
+        return NextResponse.json(
+          { error: 'Failed to update user privileges' },
+          { status: 500 }
+        );
       }
     }
 
@@ -234,16 +268,30 @@ export async function POST(request: NextRequest) {
       }
 
       targetCapperId = capper_id;
+      console.log('Admin posting pick for capper:', { admin_id: user.id, target_capper_id: capper_id });
     } else {
       // Regular user posting their own pick
-      console.log('Regular user posting pick, is_capper:', user.is_capper);
+      console.log('Regular user posting own pick - Final authorization check:', { 
+        user_id: user.id,
+        whop_user_id: user.whop_user_id,
+        is_capper: user.is_capper,
+        typeof_is_capper: typeof user.is_capper
+      });
+      
       if (!user.is_capper) {
-        console.log('User is not a capper, denying access');
+        console.error('AUTHORIZATION FAILED - User is not a capper:', {
+          user_id: user.id,
+          whop_user_id: user.whop_user_id,
+          is_capper: user.is_capper,
+          user_object: JSON.stringify(user, null, 2)
+        });
         return NextResponse.json(
           { error: 'User is not authorized to create picks' },
           { status: 403 }
         );
       }
+      
+      console.log('AUTHORIZATION SUCCESS - User is authorized to create picks');
     }
 
     // Create new pick
