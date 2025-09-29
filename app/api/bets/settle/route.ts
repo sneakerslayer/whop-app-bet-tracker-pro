@@ -86,6 +86,9 @@ export async function POST(request: NextRequest) {
     // Update user stats
     await updateUserStats(user.id, experience_id);
 
+    // Update bankrolls with transaction
+    await updateBankrollsWithBetResult(user.id, bet, result, actual_return);
+
     return NextResponse.json({ bet: updatedBet });
 
   } catch (error) {
@@ -184,5 +187,78 @@ async function updateUserStats(user_id: string, experience_id: string) {
 
   } catch (error) {
     console.error('Error in updateUserStats:', error);
+  }
+}
+
+async function updateBankrollsWithBetResult(user_id: string, bet: any, result: string, actual_return: number) {
+  try {
+    // Get user's active bankrolls
+    const { data: bankrolls, error: bankrollError } = await supabase
+      .from('bankrolls')
+      .select('*')
+      .eq('user_id', user_id)
+      .eq('is_active', true);
+
+    if (bankrollError || !bankrolls || bankrolls.length === 0) {
+      console.log('No active bankrolls found for user');
+      return;
+    }
+
+    // Find the most appropriate bankroll (prefer sport-specific, then general)
+    let targetBankroll = bankrolls.find(br => br.sport === bet.sport) || bankrolls[0];
+
+    if (!targetBankroll) return;
+
+    let transactionType = '';
+    let transactionAmount = 0;
+    let bankrollAdjustment = 0;
+
+    if (result === 'won') {
+      transactionType = 'win';
+      transactionAmount = actual_return - bet.stake; // Profit amount
+      bankrollAdjustment = transactionAmount;
+    } else if (result === 'lost') {
+      transactionType = 'loss';
+      transactionAmount = bet.stake; // Loss amount
+      bankrollAdjustment = -transactionAmount;
+    } else if (result === 'push') {
+      // Push returns stake, no profit/loss
+      return;
+    }
+
+    // Create transaction record
+    const { error: transactionError } = await supabase
+      .from('transactions')
+      .insert({
+        bankroll_id: targetBankroll.id,
+        user_id: user_id,
+        type: transactionType,
+        amount: transactionAmount,
+        description: `Bet ${result}: ${bet.description}`
+      });
+
+    if (transactionError) {
+      console.error('Error creating transaction:', transactionError);
+      return;
+    }
+
+    // Update bankroll current amount
+    const newCurrentAmount = targetBankroll.current_amount + bankrollAdjustment;
+    
+    const { error: bankrollUpdateError } = await supabase
+      .from('bankrolls')
+      .update({
+        current_amount: newCurrentAmount,
+        last_transaction_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', targetBankroll.id);
+
+    if (bankrollUpdateError) {
+      console.error('Error updating bankroll:', bankrollUpdateError);
+    }
+
+  } catch (error) {
+    console.error('Error in updateBankrollsWithBetResult:', error);
   }
 }

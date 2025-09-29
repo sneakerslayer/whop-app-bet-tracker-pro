@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   TrendingUp, TrendingDown, Target, DollarSign, Flame, Crown,
   Plus, BarChart3, Trophy, Filter, Loader2, AlertCircle, CheckCircle,
-  Users, Star, Wallet, Settings, Eye, Heart, Share2, Clock, Award
+  Users, Star, Wallet, Settings, Eye, Heart, Share2, Clock, Award, X
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
@@ -170,11 +170,19 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [cappers, setCappers] = useState<Capper[]>([]);
   const [isCapper, setIsCapper] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(true); // Admin status (default to true for testing)
   const [showAddPick, setShowAddPick] = useState(false);
   const [showAddBankroll, setShowAddBankroll] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showUnitSettings, setShowUnitSettings] = useState(false);
   const [unitSize, setUnitSize] = useState(100);
+  const [showAdminCapperModal, setShowAdminCapperModal] = useState(false);
+  const [capperForm, setCapperForm] = useState({
+    whop_user_id: '',
+    username: '',
+    display_name: '',
+    is_verified: false
+  });
 
   // Use real user data from props or fallback to mock data
   const currentUser = {
@@ -440,6 +448,126 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       }
     } catch (err) {
       console.error('Failed to update unit size:', err);
+    }
+  };
+
+  // Admin: Add/Update Capper
+  const addCapper = async () => {
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/admin/cappers', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...capperForm,
+          experience_id: currentUser.experience_id,
+          admin_user_id: currentUser.whop_user_id
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add capper');
+      }
+
+      // Reset form and reload cappers
+      setCapperForm({
+        whop_user_id: '',
+        username: '',
+        display_name: '',
+        is_verified: false
+      });
+      setShowAdminCapperModal(false);
+      await loadCappers();
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to add capper');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Admin: Remove Capper
+  const removeCapper = async (capperId: string) => {
+    if (!confirm('Are you sure you want to remove this capper?')) return;
+    
+    try {
+      const response = await fetch('/api/admin/cappers', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          capper_id: capperId,
+          experience_id: currentUser.experience_id,
+          admin_user_id: currentUser.whop_user_id
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to remove capper');
+      }
+
+      await loadCappers();
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove capper');
+    }
+  };
+
+  // Admin: Post Pick as Capper
+  const postPickAsCapper = async (capperId: string) => {
+    setSubmitting(true);
+    try {
+      const response = await fetch('/api/picks', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ...pickForm,
+          capper_id: capperId,
+          whop_user_id: currentUser.whop_user_id,
+          experience_id: currentUser.experience_id,
+          recommended_odds_american: parseInt(pickForm.recommended_odds_american) || null,
+          recommended_units: parseFloat(pickForm.recommended_units.toString()),
+          confidence: parseInt(pickForm.confidence.toString()),
+          max_bet_amount: pickForm.max_bet_amount ? parseFloat(pickForm.max_bet_amount) : null,
+          price: pickForm.price ? parseFloat(pickForm.price) : null,
+          tags: pickForm.tags ? pickForm.tags.split(',').map(t => t.trim()) : []
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to post pick');
+      }
+
+      // Reset form and reload picks
+      setPickForm({
+        sport: '',
+        league: '',
+        bet_type: 'moneyline',
+        description: '',
+        reasoning: '',
+        confidence: 5,
+        recommended_odds_american: '',
+        recommended_units: 1,
+        max_bet_amount: '',
+        access_tier: 'public',
+        is_premium: false,
+        price: '',
+        game_time: '',
+        expires_at: '',
+        tags: ''
+      });
+      setShowAddPick(false);
+      await loadPicks();
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to post pick');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -908,6 +1036,361 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
     );
   };
 
+  // Add Bankroll Form component
+  const AddBankrollForm = () => {
+    const [localBankrollForm, setLocalBankrollForm] = useState({
+      name: 'Main Bankroll',
+      starting_amount: '',
+      currency: 'USD',
+      sport: '',
+      sportsbook: '',
+      max_bet_percentage: 5,
+      stop_loss_threshold: '',
+      target_profit: ''
+    });
+
+    const handleSubmit = async () => {
+      setSubmitting(true);
+      try {
+        const response = await fetch('/api/bankrolls', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...localBankrollForm,
+            whop_user_id: currentUser.whop_user_id,
+            experience_id: currentUser.experience_id,
+            starting_amount: parseFloat(localBankrollForm.starting_amount),
+            max_bet_percentage: parseFloat(localBankrollForm.max_bet_percentage.toString()),
+            stop_loss_threshold: localBankrollForm.stop_loss_threshold ? parseFloat(localBankrollForm.stop_loss_threshold) : null,
+            target_profit: localBankrollForm.target_profit ? parseFloat(localBankrollForm.target_profit) : null
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add bankroll');
+        }
+
+        // Reset form and reload data
+        setLocalBankrollForm({
+          name: 'Main Bankroll',
+          starting_amount: '',
+          currency: 'USD',
+          sport: '',
+          sportsbook: '',
+          max_bet_percentage: 5,
+          stop_loss_threshold: '',
+          target_profit: ''
+        });
+        setShowAddBankroll(false);
+        await loadBankrolls();
+        
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add bankroll');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    return (
+      <Card className="mb-6 bg-white/10 backdrop-blur-md border-white/20">
+        <CardHeader>
+          <CardTitle className="text-white">Add New Bankroll</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Bankroll Name</label>
+              <Input
+                value={localBankrollForm.name}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, name: e.target.value}))}
+                placeholder="Main Bankroll"
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Starting Amount ($)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={localBankrollForm.starting_amount}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, starting_amount: e.target.value}))}
+                placeholder="1000.00"
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                required
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Currency</label>
+              <select
+                className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                value={localBankrollForm.currency}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, currency: e.target.value}))}
+              >
+                <option value="USD">USD</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
+                <option value="CAD">CAD</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Sport (Optional)</label>
+              <select
+                className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                value={localBankrollForm.sport}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, sport: e.target.value}))}
+              >
+                <option value="">All Sports</option>
+                <option value="nfl">NFL</option>
+                <option value="nba">NBA</option>
+                <option value="mlb">MLB</option>
+                <option value="nhl">NHL</option>
+                <option value="ncaaf">College Football</option>
+                <option value="ncaab">College Basketball</option>
+                <option value="soccer">Soccer</option>
+                <option value="tennis">Tennis</option>
+                <option value="mma">MMA</option>
+                <option value="boxing">Boxing</option>
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Sportsbook (Optional)</label>
+              <select
+                className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                value={localBankrollForm.sportsbook}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, sportsbook: e.target.value}))}
+              >
+                <option value="">All Sportsbooks</option>
+                <option value="draftkings">DraftKings</option>
+                <option value="fanduel">FanDuel</option>
+                <option value="bet365">Bet365</option>
+                <option value="caesars">Caesars</option>
+                <option value="mgm">BetMGM</option>
+                <option value="pointsbet">PointsBet</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Max Bet %</label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={localBankrollForm.max_bet_percentage}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, max_bet_percentage: parseFloat(e.target.value)}))}
+                placeholder="5"
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Stop Loss % (Optional)</label>
+              <Input
+                type="number"
+                step="0.1"
+                min="0"
+                max="100"
+                value={localBankrollForm.stop_loss_threshold}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, stop_loss_threshold: e.target.value}))}
+                placeholder="20"
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Target Profit $ (Optional)</label>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={localBankrollForm.target_profit}
+                onChange={(e) => setLocalBankrollForm((prev: any) => ({...prev, target_profit: e.target.value}))}
+                placeholder="5000.00"
+                className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+              />
+            </div>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleSubmit}
+              disabled={submitting || !localBankrollForm.name || !localBankrollForm.starting_amount}
+              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding Bankroll...
+                </>
+              ) : (
+                'Add Bankroll'
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAddBankroll(false)}
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  // Add Transaction Form component
+  const AddTransactionForm = () => {
+    const [localTransactionForm, setLocalTransactionForm] = useState({
+      bankroll_id: '',
+      type: 'deposit',
+      amount: '',
+      description: ''
+    });
+
+    const handleSubmit = async () => {
+      setSubmitting(true);
+      try {
+        const response = await fetch('/api/bankrolls/transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...localTransactionForm,
+            whop_user_id: currentUser.whop_user_id,
+            experience_id: currentUser.experience_id,
+            amount: parseFloat(localTransactionForm.amount)
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add transaction');
+        }
+
+        // Reset form and reload data
+        setLocalTransactionForm({
+          bankroll_id: '',
+          type: 'deposit',
+          amount: '',
+          description: ''
+        });
+        setShowAddTransaction(false);
+        await loadTransactions();
+        await loadBankrolls(); // Reload bankrolls to update current amounts
+        
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add transaction');
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    return (
+      <Card className="mb-6 bg-white/10 backdrop-blur-md border-white/20">
+        <CardHeader>
+          <CardTitle className="text-white">Add Transaction</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Bankroll</label>
+              <select
+                className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                value={localTransactionForm.bankroll_id}
+                onChange={(e) => setLocalTransactionForm((prev: any) => ({...prev, bankroll_id: e.target.value}))}
+                required
+              >
+                <option value="">Select Bankroll</option>
+                {bankrolls.map((bankroll) => (
+                  <option key={bankroll.id} value={bankroll.id}>
+                    {bankroll.name} (${bankroll.current_amount.toLocaleString()})
+                  </option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-200">Transaction Type</label>
+              <select
+                className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                value={localTransactionForm.type}
+                onChange={(e) => setLocalTransactionForm((prev: any) => ({...prev, type: e.target.value}))}
+              >
+                <option value="deposit">Deposit</option>
+                <option value="withdrawal">Withdrawal</option>
+                <option value="win">Win</option>
+                <option value="loss">Loss</option>
+                <option value="bonus">Bonus</option>
+                <option value="adjustment">Adjustment</option>
+              </select>
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-200">Amount ($)</label>
+            <Input
+              type="number"
+              step="0.01"
+              min="0"
+              value={localTransactionForm.amount}
+              onChange={(e) => setLocalTransactionForm((prev: any) => ({...prev, amount: e.target.value}))}
+              placeholder="100.00"
+              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium mb-1 text-gray-200">Description (Optional)</label>
+            <Input
+              value={localTransactionForm.description}
+              onChange={(e) => setLocalTransactionForm((prev: any) => ({...prev, description: e.target.value}))}
+              placeholder="e.g., Monthly deposit, Bet win, etc."
+              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+            />
+          </div>
+          
+          <div className="flex gap-2">
+            <Button 
+              onClick={handleSubmit}
+              disabled={submitting || !localTransactionForm.bankroll_id || !localTransactionForm.amount}
+              className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Adding Transaction...
+                </>
+              ) : (
+                'Add Transaction'
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAddTransaction(false)}
+              className="border-white/20 text-white hover:bg-white/10"
+            >
+              Cancel
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   // Loading state
   if (loading) {
     return (
@@ -1303,7 +1786,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
           <TabsContent value="picks" className="space-y-6">
             <div className="flex justify-between items-center">
               <h2 className="text-2xl font-bold text-white">Community Picks</h2>
-              {isCapper && (
+              {(isCapper || isAdmin) && (
                 <Button onClick={() => setShowAddPick(true)} className="bg-green-600 hover:bg-green-700">
                   <Plus className="h-4 w-4 mr-2" />
                   Create Pick
@@ -1312,7 +1795,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
             </div>
 
             {/* Become Capper Button */}
-            {!isCapper && (
+            {!isCapper && !isAdmin && (
               <Card className="bg-blue-500/10 border-blue-500/20">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
@@ -1323,6 +1806,178 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                     <Button onClick={() => setIsCapper(true)} className="bg-blue-600 hover:bg-blue-700">
                       <Star className="h-4 w-4 mr-2" />
                       Become Capper
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Add Pick Form */}
+            {showAddPick && (
+              <Card className="mb-6 bg-white/10 backdrop-blur-md border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white">
+                    {isAdmin ? 'Post Pick for Capper (Admin)' : 'Create New Pick'}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Sport</label>
+                      <select 
+                        className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                        value={pickForm.sport}
+                        onChange={(e) => setPickForm({...pickForm, sport: e.target.value})}
+                        required
+                      >
+                        <option value="">Select Sport</option>
+                        <option value="nfl">NFL</option>
+                        <option value="nba">NBA</option>
+                        <option value="mlb">MLB</option>
+                        <option value="nhl">NHL</option>
+                        <option value="ncaaf">College Football</option>
+                        <option value="ncaab">College Basketball</option>
+                        <option value="soccer">Soccer</option>
+                        <option value="tennis">Tennis</option>
+                        <option value="mma">MMA</option>
+                        <option value="boxing">Boxing</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Bet Type</label>
+                      <select 
+                        className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                        value={pickForm.bet_type}
+                        onChange={(e) => setPickForm({...pickForm, bet_type: e.target.value})}
+                      >
+                        <option value="moneyline">Moneyline</option>
+                        <option value="spread">Point Spread</option>
+                        <option value="total">Over/Under</option>
+                        <option value="prop">Player Prop</option>
+                        <option value="parlay">Parlay</option>
+                        <option value="teaser">Teaser</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-200">Description</label>
+                    <Input
+                      value={pickForm.description}
+                      onChange={(e) => setPickForm({...pickForm, description: e.target.value})}
+                      placeholder="e.g., Lakers -5.5 vs Warriors"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-200">Reasoning</label>
+                    <Textarea
+                      value={pickForm.reasoning}
+                      onChange={(e) => setPickForm({...pickForm, reasoning: e.target.value})}
+                      placeholder="Explain your reasoning for this pick..."
+                      rows={3}
+                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Confidence (1-10)</label>
+                      <Input
+                        type="number"
+                        min="1"
+                        max="10"
+                        value={pickForm.confidence}
+                        onChange={(e) => setPickForm({...pickForm, confidence: parseInt(e.target.value) || 5})}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Odds (American)</label>
+                      <Input
+                        type="number"
+                        value={pickForm.recommended_odds_american}
+                        onChange={(e) => setPickForm({...pickForm, recommended_odds_american: e.target.value})}
+                        placeholder="-110"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Units</label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={pickForm.recommended_units}
+                        onChange={(e) => setPickForm({...pickForm, recommended_units: parseFloat(e.target.value) || 1})}
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Game Time</label>
+                      <Input
+                        type="datetime-local"
+                        value={pickForm.game_time}
+                        onChange={(e) => setPickForm({...pickForm, game_time: e.target.value})}
+                        className="bg-white/10 border-white/20 text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Access Tier</label>
+                      <select 
+                        className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
+                        value={pickForm.access_tier}
+                        onChange={(e) => setPickForm({...pickForm, access_tier: e.target.value})}
+                      >
+                        <option value="public">Public</option>
+                        <option value="premium">Premium</option>
+                        <option value="vip">VIP</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={() => {
+                        const capperId = sessionStorage.getItem('selectedCapperId');
+                        if (isAdmin && capperId) {
+                          postPickAsCapper(capperId);
+                          sessionStorage.removeItem('selectedCapperId');
+                        } else {
+                          // Regular user posting their own pick
+                          postPickAsCapper(currentUser.whop_user_id);
+                        }
+                      }}
+                      disabled={submitting || !pickForm.sport || !pickForm.description}
+                      className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Posting Pick...
+                        </>
+                      ) : (
+                        'Post Pick'
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => {
+                        setShowAddPick(false);
+                        sessionStorage.removeItem('selectedCapperId');
+                      }}
+                      className="border-white/20 text-white hover:bg-white/10"
+                    >
+                      Cancel
                     </Button>
                   </div>
                 </CardContent>
@@ -1406,6 +2061,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               </Button>
             </div>
 
+            {showAddBankroll && <AddBankrollForm />}
+
             {/* Bankrolls List */}
             <div className="grid gap-4">
               {bankrolls.map((bankroll) => (
@@ -1434,6 +2091,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                 </Card>
               ))}
             </div>
+
+            {showAddTransaction && <AddTransactionForm />}
 
             {/* Transactions */}
             <div>
@@ -1471,7 +2130,89 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
 
           {/* Cappers Tab */}
           <TabsContent value="cappers" className="space-y-6">
-            <h2 className="text-2xl font-bold text-white">Top Cappers</h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Top Cappers</h2>
+              {isAdmin && (
+                <Button onClick={() => setShowAdminCapperModal(true)} className="bg-purple-600 hover:bg-purple-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Capper
+                </Button>
+              )}
+            </div>
+
+            {/* Admin Capper Management Modal */}
+            {showAdminCapperModal && (
+              <Card className="mb-6 bg-white/10 backdrop-blur-md border-white/20">
+                <CardHeader>
+                  <CardTitle className="text-white">Add Capper (Admin)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Whop User ID</label>
+                      <Input
+                        value={capperForm.whop_user_id}
+                        onChange={(e) => setCapperForm({...capperForm, whop_user_id: e.target.value})}
+                        placeholder="user_xxxxx"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1 text-gray-200">Username</label>
+                      <Input
+                        value={capperForm.username}
+                        onChange={(e) => setCapperForm({...capperForm, username: e.target.value})}
+                        placeholder="username"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1 text-gray-200">Display Name</label>
+                    <Input
+                      value={capperForm.display_name}
+                      onChange={(e) => setCapperForm({...capperForm, display_name: e.target.value})}
+                      placeholder="Display Name"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={capperForm.is_verified}
+                      onChange={(e) => setCapperForm({...capperForm, is_verified: e.target.checked})}
+                      className="w-4 h-4"
+                    />
+                    <label className="text-sm text-gray-200">Verified Capper</label>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={addCapper}
+                      disabled={submitting || !capperForm.whop_user_id || !capperForm.username}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700 disabled:opacity-50"
+                    >
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Adding Capper...
+                        </>
+                      ) : (
+                        'Add Capper'
+                      )}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setShowAdminCapperModal(false)}
+                      className="border-white/20 text-white hover:bg-white/10"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
             
             <div className="grid gap-4">
               {cappers.map((capper) => (
@@ -1504,10 +2245,37 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                           </div>
                         </div>
                       </div>
-                      <Button size="sm" variant="outline">
-                        <Eye className="h-3 w-3 mr-1" />
-                        View Picks
-                      </Button>
+                      <div className="flex gap-2">
+                        {isAdmin && (
+                          <>
+                            <Button 
+                              size="sm" 
+                              className="bg-green-600 hover:bg-green-700"
+                              onClick={() => {
+                                setShowAddPick(true);
+                                // Store capper ID for posting
+                                sessionStorage.setItem('selectedCapperId', capper.id);
+                              }}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              Post Pick
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              className="border-red-500 text-red-500 hover:bg-red-500/10"
+                              onClick={() => removeCapper(capper.id)}
+                            >
+                              <X className="h-3 w-3 mr-1" />
+                              Remove
+                            </Button>
+                          </>
+                        )}
+                        <Button size="sm" variant="outline">
+                          <Eye className="h-3 w-3 mr-1" />
+                          View Picks
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
