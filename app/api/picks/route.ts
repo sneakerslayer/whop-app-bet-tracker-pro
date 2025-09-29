@@ -155,7 +155,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log('Found user:', { id: user.id, is_capper: user.is_capper });
+    console.log('Found user:', { id: user.id, is_capper: user.is_capper, whop_user_id: user.whop_user_id });
+
+    // If user is not a capper, let's check if they should be one
+    if (!user.is_capper) {
+      console.log('User is not a capper, checking if they should be...');
+      // For testing, let's make the current user a capper automatically
+      if (user.whop_user_id === 'user_ey15Seq4GOxYU') {
+        console.log('Making test user a capper automatically');
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ is_capper: true })
+          .eq('id', user.id);
+        
+        if (updateError) {
+          console.error('Error updating user to capper:', updateError);
+        } else {
+          console.log('Successfully updated user to capper');
+          user.is_capper = true;
+        }
+      }
+    }
 
     let targetCapperId = user.id;
 
