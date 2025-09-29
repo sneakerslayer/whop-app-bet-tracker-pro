@@ -150,74 +150,56 @@ export async function POST(request: NextRequest) {
 
     // Create user if not found or if userError indicates no rows found
     if (!user || userError?.code === 'PGRST116') {
-      console.log('User not found, creating user automatically:', { whop_user_id, experience_id });
+      console.log('User not found, using upsert to create/get user:', { whop_user_id, experience_id });
       
       try {
-        const { data: newUser, error: createError } = await supabase
+        // Use upsert to handle race conditions
+        const { data: upsertedUser, error: upsertError } = await supabase
           .from('users')
-          .insert({
+          .upsert({
             whop_user_id,
             whop_experience_id: experience_id,
             username: whop_user_id,
             display_name: whop_user_id,
             is_capper: true // Make them a capper by default for testing
+          }, {
+            onConflict: 'whop_user_id,whop_experience_id'
           })
           .select()
           .single();
 
-        if (createError) {
-          console.error('Error creating user:', createError);
-          
-          // If it's a duplicate key error, try to fetch the existing user
-          if (createError.code === '23505' || createError.message.includes('duplicate key')) {
-            console.log('User already exists, fetching existing user...');
-            const { data: existingUser, error: fetchError } = await supabase
-              .from('users')
-              .select('*')
-              .eq('whop_user_id', whop_user_id)
-              .eq('whop_experience_id', experience_id)
-              .single();
-            
-            if (fetchError || !existingUser) {
-              return NextResponse.json(
-                { error: 'User exists but could not be fetched: ' + createError.message },
-                { status: 500 }
-              );
-            }
-            
-            user = existingUser;
-            console.log('Fetched existing user:', { id: user.id, is_capper: user.is_capper });
-          } else {
-            return NextResponse.json(
-              { error: 'Failed to create user: ' + createError.message },
-              { status: 500 }
-            );
-          }
+        if (upsertError) {
+          console.error('Error upserting user:', upsertError);
+          return NextResponse.json(
+            { error: 'Failed to create/get user: ' + upsertError.message },
+            { status: 500 }
+          );
         }
 
-        // Initialize user stats only if user was actually created
-        if (!createError) {
-          const { error: statsError } = await supabase
-            .from('user_stats')
-            .insert({
-              user_id: newUser.id,
-              whop_experience_id: experience_id
-            });
+        user = upsertedUser;
+        console.log('Successfully upserted user:', { 
+          id: user.id, 
+          is_capper: user.is_capper,
+          whop_user_id: user.whop_user_id 
+        });
 
-          if (statsError) {
-            console.warn('Error creating user stats:', statsError);
-            // Don't fail the whole operation for stats error
-          }
-
-          user = newUser;
-          console.log('Successfully created new user:', { 
-            id: user.id, 
-            is_capper: user.is_capper,
-            whop_user_id: user.whop_user_id 
+        // Initialize user stats (ignore if already exists)
+        const { error: statsError } = await supabase
+          .from('user_stats')
+          .upsert({
+            user_id: user.id,
+            whop_experience_id: experience_id
+          }, {
+            onConflict: 'user_id'
           });
+
+        if (statsError) {
+          console.warn('Error upserting user stats:', statsError);
+          // Don't fail the whole operation for stats error
         }
+
       } catch (err) {
-        console.error('Exception during user creation:', err);
+        console.error('Exception during user upsert:', err);
         return NextResponse.json(
           { error: 'Failed to create user account' },
           { status: 500 }
