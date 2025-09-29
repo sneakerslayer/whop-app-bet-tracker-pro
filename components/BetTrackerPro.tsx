@@ -171,6 +171,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
   const [showAddPick, setShowAddPick] = useState(false);
   const [showAddBankroll, setShowAddBankroll] = useState(false);
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [showUnitSettings, setShowUnitSettings] = useState(false);
+  const [unitSize, setUnitSize] = useState(100);
 
   // Use real user data from props or fallback to mock data
   const currentUser = {
@@ -380,6 +382,62 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
     // Switch to bets tab and show add bet form
     setActiveTab('bets');
     setShowAddBet(true);
+  };
+
+  // Export user statistics to CSV
+  const exportToCSV = () => {
+    if (!userStats) return;
+    
+    const csvData = [
+      ['Metric', 'Value'],
+      ['Total Bets', userStats.total_bets],
+      ['Wins', userStats.wins],
+      ['Losses', userStats.losses],
+      ['Pushes', userStats.pushes],
+      ['Pending', userStats.pending],
+      ['Win Rate', `${userStats.win_rate.toFixed(2)}%`],
+      ['ROI', `${userStats.roi.toFixed(2)}%`],
+      ['Net Profit', `$${userStats.net_profit.toFixed(2)}`],
+      ['Current Streak', userStats.current_streak],
+      ['Units Won', userStats.units_won],
+      ['Units Wagered', userStats.units_wagered],
+      ['Unit Size', `$${unitSize}`]
+    ];
+    
+    const csvContent = csvData.map(row => row.join(',')).join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `bettracker-stats-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  // Update unit size
+  const updateUnitSize = async (newUnitSize: number) => {
+    try {
+      const response = await fetch('/api/user-stats', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          whop_user_id: currentUser.whop_user_id,
+          experience_id: currentUser.experience_id,
+          unit_size: newUnitSize
+        }),
+      });
+      
+      if (response.ok) {
+        setUnitSize(newUnitSize);
+        setShowUnitSettings(false);
+      }
+    } catch (err) {
+      console.error('Failed to update unit size:', err);
+    }
   };
 
   const submitBet = async () => {
@@ -808,7 +866,12 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <BarChart3 className="h-5 w-5 text-white" />
               </div>
-              <h1 className="text-xl font-bold text-white">BetTracker Pro</h1>
+              <h1 
+                className="text-xl font-bold text-white cursor-pointer hover:text-blue-300 transition-colors"
+                onClick={() => setActiveTab('dashboard')}
+              >
+                BetTracker Pro
+              </h1>
             </div>
             <div className="flex items-center gap-4">
               {userStats && userStats.current_streak > 0 && (
@@ -823,6 +886,24 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                   Error
                 </Badge>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowUnitSettings(true)}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Unit: ${unitSize}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={exportToCSV}
+                className="border-white/20 text-white hover:bg-white/10"
+              >
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
               <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full"></div>
             </div>
           </div>
@@ -1352,6 +1433,47 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
             </div>
           </TabsContent>
         </Tabs>
+
+        {/* Unit Settings Modal */}
+        {showUnitSettings && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <Card className="w-96 bg-white/10 backdrop-blur-md border-white/20">
+              <CardHeader>
+                <CardTitle className="text-white">Unit Size Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1 text-gray-200">Unit Size ($)</label>
+                  <Input
+                    type="number"
+                    value={unitSize}
+                    onChange={(e) => setUnitSize(parseFloat(e.target.value) || 100)}
+                    placeholder="100"
+                    className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">
+                    This is your standard betting unit size for tracking purposes
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    onClick={() => updateUnitSize(unitSize)}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    Save
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setShowUnitSettings(false)}
+                    className="border-white/20 text-white hover:bg-white/10"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
