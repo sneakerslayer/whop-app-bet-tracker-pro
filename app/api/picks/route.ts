@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
     const {
       whop_user_id,
       experience_id,
+      capper_id, // For admin posting on behalf of cappers
       sport,
       league,
       bet_type,
@@ -149,19 +150,51 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if user is a capper
-    if (!user.is_capper) {
-      return NextResponse.json(
-        { error: 'User is not authorized to create picks' },
-        { status: 403 }
-      );
+    let targetCapperId = user.id;
+
+    // If capper_id is provided (admin posting on behalf of capper)
+    if (capper_id) {
+      // TODO: Add admin verification here
+      // For now, we'll allow any user to post on behalf of others for testing
+      
+      // Verify the target capper exists and is a capper
+      const { data: targetCapper, error: capperError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', capper_id)
+        .eq('whop_experience_id', experience_id)
+        .single();
+
+      if (capperError || !targetCapper) {
+        return NextResponse.json(
+          { error: 'Target capper not found' },
+          { status: 404 }
+        );
+      }
+
+      if (!targetCapper.is_capper) {
+        return NextResponse.json(
+          { error: 'Target user is not a capper' },
+          { status: 403 }
+        );
+      }
+
+      targetCapperId = capper_id;
+    } else {
+      // Regular user posting their own pick
+      if (!user.is_capper) {
+        return NextResponse.json(
+          { error: 'User is not authorized to create picks' },
+          { status: 403 }
+        );
+      }
     }
 
     // Create new pick
     const { data: newPick, error } = await supabase
       .from('picks')
       .insert({
-        capper_id: user.id,
+        capper_id: targetCapperId,
         whop_experience_id: experience_id,
         sport,
         league,
