@@ -9,7 +9,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   TrendingUp, TrendingDown, Target, DollarSign, Flame, Crown,
-  Plus, BarChart3, Trophy, Filter, Loader2, AlertCircle, CheckCircle
+  Plus, BarChart3, Trophy, Filter, Loader2, AlertCircle, CheckCircle,
+  Users, Star, Wallet, Settings, Eye, Heart, Share2, Clock, Award
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
@@ -63,6 +64,87 @@ interface ChartDataPoint {
   roi: number;
 }
 
+interface Pick {
+  id: string;
+  capper_id: string;
+  sport: string;
+  league?: string;
+  bet_type: string;
+  description: string;
+  reasoning?: string;
+  confidence?: number;
+  recommended_odds_american?: number;
+  recommended_units: number;
+  access_tier: string;
+  is_premium: boolean;
+  price?: number;
+  result: 'pending' | 'won' | 'lost' | 'push';
+  roi?: number;
+  views: number;
+  follows: number;
+  posted_at: string;
+  game_time?: string;
+  expires_at?: string;
+  tags?: string[];
+  capper?: {
+    id: string;
+    username: string;
+    display_name?: string;
+    avatar_url?: string;
+    is_verified: boolean;
+  };
+}
+
+interface Bankroll {
+  id: string;
+  name: string;
+  starting_amount: number;
+  current_amount: number;
+  currency: string;
+  sport?: string;
+  sportsbook?: string;
+  max_bet_percentage: number;
+  stop_loss_threshold?: number;
+  target_profit?: number;
+  total_deposited: number;
+  total_withdrawn: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+interface Transaction {
+  id: string;
+  bankroll_id: string;
+  type: 'deposit' | 'withdrawal' | 'bet' | 'win' | 'loss';
+  amount: number;
+  description?: string;
+  created_at: string;
+  bankroll?: {
+    id: string;
+    name: string;
+    currency: string;
+  };
+}
+
+interface Capper {
+  id: string;
+  username: string;
+  display_name?: string;
+  avatar_url?: string;
+  is_verified: boolean;
+  user_stats: {
+    total_bets: number;
+    wins: number;
+    losses: number;
+    win_rate: number;
+    roi: number;
+    net_profit: number;
+    current_streak: number;
+    best_streak: number;
+  };
+  recent_picks: Pick[];
+}
+
 interface BetTrackerProProps {
   userId?: string;
   experienceId?: string;
@@ -79,6 +161,16 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
   const [error, setError] = useState<string | null>(null);
   const [showAddBet, setShowAddBet] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+
+  // New feature states
+  const [picks, setPicks] = useState<Pick[]>([]);
+  const [bankrolls, setBankrolls] = useState<Bankroll[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [cappers, setCappers] = useState<Capper[]>([]);
+  const [isCapper, setIsCapper] = useState(false);
+  const [showAddPick, setShowAddPick] = useState(false);
+  const [showAddBankroll, setShowAddBankroll] = useState(false);
+  const [showAddTransaction, setShowAddTransaction] = useState(false);
 
   // Use real user data from props or fallback to mock data
   const currentUser = {
@@ -98,11 +190,54 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
     notes: ''
   });
 
+  // Pick form state
+  const [pickForm, setPickForm] = useState({
+    sport: '',
+    league: '',
+    bet_type: 'moneyline',
+    description: '',
+    reasoning: '',
+    confidence: 5,
+    recommended_odds_american: '',
+    recommended_units: 1,
+    max_bet_amount: '',
+    access_tier: 'public',
+    is_premium: false,
+    price: '',
+    game_time: '',
+    expires_at: '',
+    tags: ''
+  });
+
+  // Bankroll form state
+  const [bankrollForm, setBankrollForm] = useState({
+    name: 'Main Bankroll',
+    starting_amount: '',
+    currency: 'USD',
+    sport: '',
+    sportsbook: '',
+    max_bet_percentage: 5,
+    stop_loss_threshold: '',
+    target_profit: ''
+  });
+
+  // Transaction form state
+  const [transactionForm, setTransactionForm] = useState({
+    bankroll_id: '',
+    type: 'deposit',
+    amount: '',
+    description: ''
+  });
+
   // Load data on component mount
   useEffect(() => {
     loadUserData();
     loadBets();
     loadLeaderboard();
+    loadPicks();
+    loadBankrolls();
+    loadTransactions();
+    loadCappers();
   }, []);
 
   // API Functions
@@ -157,6 +292,75 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       setLeaderboard(data.leaderboard || []);
     } catch (err) {
       console.error('Error loading leaderboard:', err);
+    }
+  };
+
+  // New API functions
+  const loadPicks = async () => {
+    try {
+      const response = await fetch(
+        `/api/picks?whop_user_id=${currentUser.whop_user_id}&experience_id=${currentUser.experience_id}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to load picks');
+      }
+      
+      const data = await response.json();
+      setPicks(data.picks || []);
+    } catch (err) {
+      console.error('Failed to load picks:', err);
+    }
+  };
+
+  const loadBankrolls = async () => {
+    try {
+      const response = await fetch(
+        `/api/bankrolls?whop_user_id=${currentUser.whop_user_id}&experience_id=${currentUser.experience_id}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to load bankrolls');
+      }
+      
+      const data = await response.json();
+      setBankrolls(data.bankrolls || []);
+    } catch (err) {
+      console.error('Failed to load bankrolls:', err);
+    }
+  };
+
+  const loadTransactions = async () => {
+    try {
+      const response = await fetch(
+        `/api/bankrolls/transactions?whop_user_id=${currentUser.whop_user_id}&experience_id=${currentUser.experience_id}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to load transactions');
+      }
+      
+      const data = await response.json();
+      setTransactions(data.transactions || []);
+    } catch (err) {
+      console.error('Failed to load transactions:', err);
+    }
+  };
+
+  const loadCappers = async () => {
+    try {
+      const response = await fetch(
+        `/api/cappers?experience_id=${currentUser.experience_id}`
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to load cappers');
+      }
+      
+      const data = await response.json();
+      setCappers(data.cappers || []);
+    } catch (err) {
+      console.error('Failed to load cappers:', err);
     }
   };
 
@@ -609,7 +813,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       {/* Navigation */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-8 bg-white/10 backdrop-blur-md">
+          <TabsList className="grid w-full grid-cols-6 mb-8 bg-white/10 backdrop-blur-md">
             <TabsTrigger value="dashboard" className="flex items-center gap-2 data-[state=active]:bg-white/20">
               <BarChart3 className="h-4 w-4" />
               Dashboard
@@ -617,6 +821,18 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
             <TabsTrigger value="bets" className="flex items-center gap-2 data-[state=active]:bg-white/20">
               <Target className="h-4 w-4" />
               My Bets ({bets.length})
+            </TabsTrigger>
+            <TabsTrigger value="picks" className="flex items-center gap-2 data-[state=active]:bg-white/20">
+              <Star className="h-4 w-4" />
+              Picks ({picks.length})
+            </TabsTrigger>
+            <TabsTrigger value="bankrolls" className="flex items-center gap-2 data-[state=active]:bg-white/20">
+              <Wallet className="h-4 w-4" />
+              Bankrolls
+            </TabsTrigger>
+            <TabsTrigger value="cappers" className="flex items-center gap-2 data-[state=active]:bg-white/20">
+              <Users className="h-4 w-4" />
+              Cappers
             </TabsTrigger>
             <TabsTrigger value="leaderboard" className="flex items-center gap-2 data-[state=active]:bg-white/20">
               <Trophy className="h-4 w-4" />
@@ -899,6 +1115,212 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Picks Tab */}
+          <TabsContent value="picks" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Community Picks</h2>
+              {isCapper && (
+                <Button onClick={() => setShowAddPick(true)} className="bg-green-600 hover:bg-green-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Pick
+                </Button>
+              )}
+            </div>
+
+            {/* Become Capper Button */}
+            {!isCapper && (
+              <Card className="bg-blue-500/10 border-blue-500/20">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-medium text-white mb-1">Become a Capper</h3>
+                      <p className="text-sm text-gray-300">Share your picks with the community and build your reputation</p>
+                    </div>
+                    <Button onClick={() => setIsCapper(true)} className="bg-blue-600 hover:bg-blue-700">
+                      <Star className="h-4 w-4 mr-2" />
+                      Become Capper
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Picks List */}
+            <div className="grid gap-4">
+              {picks.map((pick) => (
+                <Card key={pick.id} className="bg-white/5 backdrop-blur-md border-white/10">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Badge variant="outline" className="text-xs">
+                            {pick.sport}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {pick.bet_type}
+                          </Badge>
+                          {pick.is_premium && (
+                            <Badge className="bg-yellow-600 text-xs">
+                              <Star className="h-3 w-3 mr-1" />
+                              Premium
+                            </Badge>
+                          )}
+                          {pick.capper?.is_verified && (
+                            <Badge className="bg-green-600 text-xs">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Verified
+                            </Badge>
+                          )}
+                        </div>
+                        <h3 className="font-medium text-white mb-2">{pick.description}</h3>
+                        {pick.reasoning && (
+                          <p className="text-sm text-gray-300 mb-2">{pick.reasoning}</p>
+                        )}
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <span>Confidence: {pick.confidence}/10</span>
+                          <span>Units: {pick.recommended_units}</span>
+                          <span>Follows: {pick.follows}</span>
+                          <span>Views: {pick.views}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-400 mb-1">
+                          by {pick.capper?.display_name || pick.capper?.username}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(pick.posted_at).toLocaleDateString()}
+                        </div>
+                        <Button size="sm" variant="outline" className="mt-2">
+                          <Heart className="h-3 w-3 mr-1" />
+                          Follow
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+
+          {/* Bankrolls Tab */}
+          <TabsContent value="bankrolls" className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-white">Bankroll Management</h2>
+              <Button onClick={() => setShowAddBankroll(true)} className="bg-green-600 hover:bg-green-700">
+                <Plus className="h-4 w-4 mr-2" />
+                Add Bankroll
+              </Button>
+            </div>
+
+            {/* Bankrolls List */}
+            <div className="grid gap-4">
+              {bankrolls.map((bankroll) => (
+                <Card key={bankroll.id} className="bg-white/5 backdrop-blur-md border-white/10">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="font-medium text-white mb-1">{bankroll.name}</h3>
+                        <div className="flex items-center gap-4 text-sm text-gray-400">
+                          <span>Current: ${bankroll.current_amount.toLocaleString()}</span>
+                          <span>Starting: ${bankroll.starting_amount.toLocaleString()}</span>
+                          <span>P&L: ${(bankroll.current_amount - bankroll.starting_amount).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-400 mb-1">
+                          {bankroll.sport && `${bankroll.sport} • `}{bankroll.currency}
+                        </div>
+                        <Button size="sm" variant="outline" onClick={() => setShowAddTransaction(true)}>
+                          <Plus className="h-3 w-3 mr-1" />
+                          Transaction
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Transactions */}
+            <div>
+              <h3 className="text-lg font-semibold text-white mb-4">Recent Transactions</h3>
+              <div className="grid gap-2">
+                {transactions.slice(0, 10).map((transaction) => (
+                  <Card key={transaction.id} className="bg-white/5 backdrop-blur-md border-white/10">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-sm text-white">{transaction.type}</span>
+                          {transaction.description && (
+                            <span className="text-xs text-gray-400 ml-2">• {transaction.description}</span>
+                          )}
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-sm font-medium ${
+                            transaction.type === 'deposit' || transaction.type === 'win' 
+                              ? 'text-green-400' 
+                              : 'text-red-400'
+                          }`}>
+                            {transaction.type === 'deposit' || transaction.type === 'win' ? '+' : '-'}${transaction.amount}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            {new Date(transaction.created_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* Cappers Tab */}
+          <TabsContent value="cappers" className="space-y-6">
+            <h2 className="text-2xl font-bold text-white">Top Cappers</h2>
+            
+            <div className="grid gap-4">
+              {cappers.map((capper) => (
+                <Card key={capper.id} className="bg-white/5 backdrop-blur-md border-white/10">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <span className="text-white font-medium text-sm">
+                            {(capper.display_name || capper.username).charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-medium text-white">
+                              {capper.display_name || capper.username}
+                            </h3>
+                            {capper.is_verified && (
+                              <Badge className="bg-green-600 text-xs">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Verified
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-400">
+                            <span>ROI: {capper.user_stats.roi.toFixed(1)}%</span>
+                            <span>Win Rate: {capper.user_stats.win_rate.toFixed(1)}%</span>
+                            <span>Bets: {capper.user_stats.total_bets}</span>
+                            <span>Streak: {capper.user_stats.current_streak}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="outline">
+                        <Eye className="h-3 w-3 mr-1" />
+                        View Picks
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </TabsContent>
         </Tabs>
 
