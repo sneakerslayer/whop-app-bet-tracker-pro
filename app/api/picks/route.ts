@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
             display_name: whop_user_id,
             is_capper: true // Make them a capper by default for testing
           }, {
-            onConflict: 'whop_user_id,whop_experience_id'
+            onConflict: 'whop_user_id'
           })
           .select()
           .single();
