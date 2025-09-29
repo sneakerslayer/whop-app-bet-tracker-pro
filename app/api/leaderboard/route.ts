@@ -7,12 +7,35 @@ export async function GET(request: NextRequest) {
     const whop_user_id = searchParams.get('whop_user_id');
     const experience_id = searchParams.get('experience_id');
     const timeframe = searchParams.get('timeframe') || 'monthly';
+    const sport = searchParams.get('sport');
+    const bet_type = searchParams.get('bet_type');
+    const limit = parseInt(searchParams.get('limit') || '50');
 
     if (!whop_user_id || !experience_id) {
       return NextResponse.json(
         { error: 'Missing required parameters' },
         { status: 400 }
       );
+    }
+
+    // Check for cached leaderboard first
+    const cacheKey = `${experience_id}_${timeframe}_${sport || 'all'}_${bet_type || 'all'}`;
+    const { data: cachedLeaderboard, error: cacheError } = await supabase
+      .from('leaderboard_cache')
+      .select('*')
+      .eq('whop_experience_id', experience_id)
+      .eq('timeframe', timeframe)
+      .eq('sport', sport || null)
+      .eq('bet_type', bet_type || null)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+
+    if (cachedLeaderboard && !cacheError) {
+      return NextResponse.json({ 
+        leaderboard: cachedLeaderboard.rankings,
+        cached: true,
+        generated_at: cachedLeaderboard.generated_at
+      });
     }
 
     // Calculate date filter based on timeframe
@@ -44,7 +67,8 @@ export async function GET(request: NextRequest) {
       .eq('whop_experience_id', experience_id)
       .gte('updated_at', dateFilter.toISOString())
       .gte('total_bets', 10) // Minimum 10 bets to appear on leaderboard
-      .order('roi', { ascending: false });
+      .order('roi', { ascending: false })
+      .limit(limit);
 
     if (statsError) {
       console.error('Error fetching leaderboard stats:', statsError);
@@ -74,7 +98,28 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json({ leaderboard });
+    // Cache the leaderboard
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour cache
+    const { error: cacheInsertError } = await supabase
+      .from('leaderboard_cache')
+      .upsert({
+        whop_experience_id: experience_id,
+        timeframe,
+        sport: sport || null,
+        bet_type: bet_type || null,
+        rankings: leaderboard,
+        expires_at: expiresAt.toISOString()
+      });
+
+    if (cacheInsertError) {
+      console.error('Error caching leaderboard:', cacheInsertError);
+    }
+
+    return NextResponse.json({ 
+      leaderboard,
+      cached: false,
+      generated_at: new Date().toISOString()
+    });
 
   } catch (error) {
     console.error('Error in leaderboard API:', error);
