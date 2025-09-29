@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
 
     // Get user from database
     console.log('Looking for user:', { whop_user_id, experience_id });
-    const { data: user, error: userError } = await supabase
+    let { data: user, error: userError } = await supabase
       .from('users')
       .select('*')
       .eq('whop_user_id', whop_user_id)
@@ -148,11 +148,38 @@ export async function POST(request: NextRequest) {
     }
 
     if (!user) {
-      console.log('User not found:', { whop_user_id, experience_id });
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      console.log('User not found, creating user automatically:', { whop_user_id, experience_id });
+      // Create user automatically for testing
+      const { data: newUser, error: createError } = await supabase
+        .from('users')
+        .insert({
+          whop_user_id,
+          whop_experience_id: experience_id,
+          username: whop_user_id,
+          display_name: whop_user_id,
+          is_capper: true // Make them a capper by default for testing
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        console.error('Error creating user:', createError);
+        return NextResponse.json(
+          { error: 'Failed to create user' },
+          { status: 500 }
+        );
+      }
+
+      // Initialize user stats
+      await supabase
+        .from('user_stats')
+        .insert({
+          user_id: newUser.id,
+          whop_experience_id: experience_id
+        });
+
+      user = newUser;
+      console.log('Created new user:', { id: user.id, is_capper: user.is_capper });
     }
 
     console.log('Found user:', { id: user.id, is_capper: user.is_capper, whop_user_id: user.whop_user_id });
