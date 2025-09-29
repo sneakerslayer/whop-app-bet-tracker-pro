@@ -189,6 +189,13 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
     whop_user_id: userId || 'user_123',
     experience_id: experienceId || 'exp_456'
   };
+  
+  // Debug: Log current user data
+  console.log('Current user data:', { 
+    userId, 
+    experienceId, 
+    currentUser 
+  });
 
   // Bet form state
   const [betForm, setBetForm] = useState({
@@ -471,8 +478,13 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       });
 
       if (!response.ok) {
-        throw new Error('Failed to add capper');
+        const errorData = await response.text();
+        console.error('Capper creation error:', errorData);
+        throw new Error(`Failed to add capper: ${errorData}`);
       }
+
+      const result = await response.json();
+      console.log('Capper creation success:', result);
 
       // Reset form and reload cappers
       setCapperForm({
@@ -546,10 +558,18 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.text();
         console.error('Pick posting error:', errorData);
-        throw new Error(errorData.error || 'Failed to post pick');
+        try {
+          const jsonError = JSON.parse(errorData);
+          throw new Error(jsonError.error || 'Failed to post pick');
+        } catch {
+          throw new Error(`Failed to post pick: ${errorData}`);
+        }
       }
+
+      const result = await response.json();
+      console.log('Pick creation success:', result);
 
       // Reset form and reload picks
       setPickForm({
