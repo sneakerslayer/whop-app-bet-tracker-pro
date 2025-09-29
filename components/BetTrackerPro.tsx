@@ -517,7 +517,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
   };
 
   // Admin: Post Pick as Capper
-  const postPickAsCapper = async (capperId: string) => {
+  const postPickAsCapper = async (capperId?: string) => {
     setSubmitting(true);
     try {
       const response = await fetch('/api/picks', {
@@ -527,7 +527,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
         },
         body: JSON.stringify({
           ...pickForm,
-          capper_id: capperId,
+          capper_id: capperId, // Only include if admin posting for specific capper
           whop_user_id: currentUser.whop_user_id,
           experience_id: currentUser.experience_id,
           recommended_odds_american: parseInt(pickForm.recommended_odds_american) || null,
@@ -540,7 +540,9 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       });
 
       if (!response.ok) {
-        throw new Error('Failed to post pick');
+        const errorData = await response.json();
+        console.error('Pick posting error:', errorData);
+        throw new Error(errorData.error || 'Failed to post pick');
       }
 
       // Reset form and reload picks
@@ -1954,7 +1956,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                           sessionStorage.removeItem('selectedCapperId');
                         } else {
                           // Regular user posting their own pick
-                          postPickAsCapper(currentUser.whop_user_id);
+                          postPickAsCapper();
                         }
                       }}
                       disabled={submitting || !pickForm.sport || !pickForm.description}
