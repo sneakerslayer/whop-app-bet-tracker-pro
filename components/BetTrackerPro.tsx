@@ -370,7 +370,12 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
 
   // Quick add pick to bet form
   const quickAddPick = (pick: Pick) => {
-    setBetForm({
+    // Switch to bets tab and show add bet form
+    setActiveTab('bets');
+    setShowAddBet(true);
+    
+    // Store pick data for the form to use
+    sessionStorage.setItem('quickAddPick', JSON.stringify({
       sport: pick.sport,
       bet_type: pick.bet_type,
       description: pick.description,
@@ -379,11 +384,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       sportsbook: '',
       game_date: pick.game_time || '',
       notes: pick.reasoning || ''
-    });
-    
-    // Switch to bets tab and show add bet form
-    setActiveTab('bets');
-    setShowAddBet(true);
+    }));
   };
 
   // Export user statistics to CSV
@@ -677,36 +678,73 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
     </div>
   );
 
-  // Memoized form component to prevent re-renders
-  const AddBetForm = React.memo(({ betForm, setBetForm, submitBet, submitting, setShowAddBet }: {
-    betForm: {
-      sport: string;
-      bet_type: string;
-      description: string;
-      odds_american: string;
-      stake: string;
-      sportsbook: string;
-      game_date: string;
-      notes: string;
-    };
-    setBetForm: React.Dispatch<React.SetStateAction<{
-      sport: string;
-      bet_type: string;
-      description: string;
-      odds_american: string;
-      stake: string;
-      sportsbook: string;
-      game_date: string;
-      notes: string;
-    }>>;
-    submitBet: () => Promise<void>;
-    submitting: boolean;
-    setShowAddBet: React.Dispatch<React.SetStateAction<boolean>>;
-  }) => {
+  // Separate AddBetForm component to prevent re-renders
+  const AddBetForm = () => {
+    const [localBetForm, setLocalBetForm] = useState(() => {
+      // Check for quick add pick data
+      const quickAddData = sessionStorage.getItem('quickAddPick');
+      if (quickAddData) {
+        sessionStorage.removeItem('quickAddPick'); // Clear after use
+        return JSON.parse(quickAddData);
+      }
+      return {
+        sport: '',
+        bet_type: 'moneyline',
+        description: '',
+        odds_american: '',
+        stake: '',
+        sportsbook: '',
+        game_date: '',
+        notes: ''
+      };
+    });
+
     const potentialReturn = calculatePotentialReturn(
-      parseFloat(betForm.stake) || 0,
-      parseInt(betForm.odds_american) || 0
+      parseFloat(localBetForm.stake) || 0,
+      parseInt(localBetForm.odds_american) || 0
     );
+
+    const handleSubmit = async () => {
+      setSubmitting(true);
+      try {
+        const response = await fetch('/api/bets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            ...localBetForm,
+            whop_user_id: currentUser.whop_user_id,
+            experience_id: currentUser.experience_id
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to add bet');
+        }
+
+        // Reset form and reload data
+        setLocalBetForm({
+          sport: '',
+          bet_type: 'moneyline',
+          description: '',
+          odds_american: '',
+          stake: '',
+          sportsbook: '',
+          game_date: '',
+          notes: ''
+        });
+        setShowAddBet(false);
+        await loadBets();
+        await loadUserData();
+        await loadLeaderboard();
+        
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to add bet');
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
     return (
       <Card className="mb-6 bg-white/10 backdrop-blur-md border-white/20">
@@ -719,8 +757,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               <label className="block text-sm font-medium mb-1 text-gray-200">Sport</label>
               <select 
                 className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
-                value={betForm.sport}
-                onChange={(e) => setBetForm((prev: any) => ({...prev, sport: e.target.value}))}
+                value={localBetForm.sport}
+                onChange={(e) => setLocalBetForm((prev: any) => ({...prev, sport: e.target.value}))}
                 required
               >
                 <option value="">Select Sport</option>
@@ -741,8 +779,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               <label className="block text-sm font-medium mb-1 text-gray-200">Bet Type</label>
               <select 
                 className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
-                value={betForm.bet_type}
-                onChange={(e) => setBetForm((prev: any) => ({...prev, bet_type: e.target.value}))}
+                value={localBetForm.bet_type}
+                onChange={(e) => setLocalBetForm((prev: any) => ({...prev, bet_type: e.target.value}))}
               >
                 <option value="moneyline">Moneyline</option>
                 <option value="spread">Point Spread</option>
@@ -757,8 +795,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-200">Description</label>
             <Input
-              value={betForm.description}
-              onChange={(e) => setBetForm((prev: any) => ({...prev, description: e.target.value}))}
+              value={localBetForm.description}
+              onChange={(e) => setLocalBetForm((prev: any) => ({...prev, description: e.target.value}))}
               placeholder="e.g., Lakers -5.5 vs Warriors"
               className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
               required
@@ -770,8 +808,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               <label className="block text-sm font-medium mb-1 text-gray-200">Odds (American)</label>
               <Input
                 type="number"
-                value={betForm.odds_american}
-                onChange={(e) => setBetForm((prev: any) => ({...prev, odds_american: e.target.value}))}
+                value={localBetForm.odds_american}
+                onChange={(e) => setLocalBetForm((prev: any) => ({...prev, odds_american: e.target.value}))}
                 placeholder="-110"
                 className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
                 required
@@ -784,8 +822,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                 type="number"
                 step="0.01"
                 min="0"
-                value={betForm.stake}
-                onChange={(e) => setBetForm((prev: any) => ({...prev, stake: e.target.value}))}
+                value={localBetForm.stake}
+                onChange={(e) => setLocalBetForm((prev: any) => ({...prev, stake: e.target.value}))}
                 placeholder="100.00"
                 className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
                 required
@@ -807,8 +845,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               <label className="block text-sm font-medium mb-1 text-gray-200">Sportsbook</label>
               <select
                 className="w-full p-2 border border-white/20 rounded-md bg-white/10 text-white"
-                value={betForm.sportsbook}
-                onChange={(e) => setBetForm((prev: any) => ({...prev, sportsbook: e.target.value}))}
+                value={localBetForm.sportsbook}
+                onChange={(e) => setLocalBetForm((prev: any) => ({...prev, sportsbook: e.target.value}))}
               >
                 <option value="">Select Sportsbook</option>
                 <option value="draftkings">DraftKings</option>
@@ -824,8 +862,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               <label className="block text-sm font-medium mb-1 text-gray-200">Game Date</label>
               <Input
                 type="datetime-local"
-                value={betForm.game_date}
-                onChange={(e) => setBetForm((prev: any) => ({...prev, game_date: e.target.value}))}
+                value={localBetForm.game_date}
+                onChange={(e) => setLocalBetForm((prev: any) => ({...prev, game_date: e.target.value}))}
                 className="bg-white/10 border-white/20 text-white"
               />
             </div>
@@ -834,8 +872,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-200">Notes (Optional)</label>
             <Textarea
-              value={betForm.notes}
-              onChange={(e) => setBetForm((prev: any) => ({...prev, notes: e.target.value}))}
+              value={localBetForm.notes}
+              onChange={(e) => setLocalBetForm((prev: any) => ({...prev, notes: e.target.value}))}
               placeholder="Any additional notes..."
               rows={3}
               className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
@@ -844,8 +882,8 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
           
           <div className="flex gap-2">
             <Button 
-              onClick={submitBet}
-              disabled={submitting || !betForm.sport || !betForm.description || !betForm.odds_american || !betForm.stake}
+              onClick={handleSubmit}
+              disabled={submitting || !localBetForm.sport || !localBetForm.description || !localBetForm.odds_american || !localBetForm.stake}
               className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:opacity-50"
             >
               {submitting ? (
@@ -868,7 +906,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
         </CardContent>
       </Card>
     );
-  });
+  };
 
   // Loading state
   if (loading) {
@@ -942,48 +980,42 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
           <TabsList className="grid w-full grid-cols-6 mb-8 bg-white/10 backdrop-blur-md">
             <TabsTrigger 
               value="dashboard" 
-              className="flex items-center gap-2 data-[state=active]:bg-white/20 cursor-pointer"
-              onClick={() => setActiveTab('dashboard')}
+              className="flex items-center gap-2 data-[state=active]:bg-white/20"
             >
               <BarChart3 className="h-4 w-4" />
               Dashboard
             </TabsTrigger>
             <TabsTrigger 
               value="bets" 
-              className="flex items-center gap-2 data-[state=active]:bg-white/20 cursor-pointer"
-              onClick={() => setActiveTab('bets')}
+              className="flex items-center gap-2 data-[state=active]:bg-white/20"
             >
               <Target className="h-4 w-4" />
               My Bets ({bets.length})
             </TabsTrigger>
             <TabsTrigger 
               value="picks" 
-              className="flex items-center gap-2 data-[state=active]:bg-white/20 cursor-pointer"
-              onClick={() => setActiveTab('picks')}
+              className="flex items-center gap-2 data-[state=active]:bg-white/20"
             >
               <Star className="h-4 w-4" />
               Picks ({picks.length})
             </TabsTrigger>
             <TabsTrigger 
               value="bankrolls" 
-              className="flex items-center gap-2 data-[state=active]:bg-white/20 cursor-pointer"
-              onClick={() => setActiveTab('bankrolls')}
+              className="flex items-center gap-2 data-[state=active]:bg-white/20"
             >
               <Wallet className="h-4 w-4" />
               Bankrolls
             </TabsTrigger>
             <TabsTrigger 
               value="cappers" 
-              className="flex items-center gap-2 data-[state=active]:bg-white/20 cursor-pointer"
-              onClick={() => setActiveTab('cappers')}
+              className="flex items-center gap-2 data-[state=active]:bg-white/20"
             >
               <Users className="h-4 w-4" />
               Cappers
             </TabsTrigger>
             <TabsTrigger 
               value="leaderboard" 
-              className="flex items-center gap-2 data-[state=active]:bg-white/20 cursor-pointer"
-              onClick={() => setActiveTab('leaderboard')}
+              className="flex items-center gap-2 data-[state=active]:bg-white/20"
             >
               <Trophy className="h-4 w-4" />
               Leaderboard
@@ -1164,15 +1196,7 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
               </Button>
             </div>
 
-            {showAddBet && (
-            <AddBetForm 
-              betForm={betForm}
-              setBetForm={setBetForm}
-              submitBet={submitBet}
-              submitting={submitting}
-              setShowAddBet={setShowAddBet}
-            />
-          )}
+            {showAddBet && <AddBetForm />}
 
             <Card className="bg-white/10 backdrop-blur-md border-white/20">
               <CardHeader>
