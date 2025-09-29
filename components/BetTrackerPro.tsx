@@ -364,6 +364,24 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
     }
   };
 
+  // Quick add pick to bet form
+  const quickAddPick = (pick: Pick) => {
+    setBetForm({
+      sport: pick.sport,
+      bet_type: pick.bet_type,
+      description: pick.description,
+      odds_american: pick.recommended_odds_american?.toString() || '',
+      stake: '', // Let user enter their own stake
+      sportsbook: '',
+      game_date: pick.game_time || '',
+      notes: pick.reasoning || ''
+    });
+    
+    // Switch to bets tab and show add bet form
+    setActiveTab('bets');
+    setShowAddBet(true);
+  };
+
   const submitBet = async () => {
     setSubmitting(true);
     try {
@@ -1193,10 +1211,20 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                         <div className="text-xs text-gray-500">
                           {new Date(pick.posted_at).toLocaleDateString()}
                         </div>
-                        <Button size="sm" variant="outline" className="mt-2">
-                          <Heart className="h-3 w-3 mr-1" />
-                          Follow
-                        </Button>
+                        <div className="flex gap-2 mt-2">
+                          <Button size="sm" variant="outline">
+                            <Heart className="h-3 w-3 mr-1" />
+                            Follow
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            className="bg-green-600 hover:bg-green-700 text-white"
+                            onClick={() => quickAddPick(pick)}
+                          >
+                            <Plus className="h-3 w-3 mr-1" />
+                            Quick Add
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </CardContent>
