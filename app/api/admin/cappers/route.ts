@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     // In production, you should check if admin_user_id has admin privileges
 
     // Check if user exists, create if not
+    console.log('Checking for existing user:', { whop_user_id, experience_id });
     const { data: existingUser, error: userError } = await supabase
       .from('users')
       .select('*')
@@ -34,6 +35,8 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    console.log('Existing user found:', existingUser ? { id: existingUser.id, is_capper: existingUser.is_capper } : 'none');
 
     let userId = existingUser?.id;
 
@@ -87,6 +90,7 @@ export async function POST(request: NextRequest) {
           { status: 500 }
         );
       }
+      console.log('Updated existing user to be capper');
     }
 
     return NextResponse.json({ 

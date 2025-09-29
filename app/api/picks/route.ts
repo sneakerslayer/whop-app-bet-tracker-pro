@@ -189,7 +189,9 @@ export async function POST(request: NextRequest) {
       targetCapperId = capper_id;
     } else {
       // Regular user posting their own pick
+      console.log('Regular user posting pick, is_capper:', user.is_capper);
       if (!user.is_capper) {
+        console.log('User is not a capper, denying access');
         return NextResponse.json(
           { error: 'User is not authorized to create picks' },
           { status: 403 }
