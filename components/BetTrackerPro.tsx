@@ -478,9 +478,18 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Capper creation error:', errorData);
-        throw new Error(`Failed to add capper: ${errorData}`);
+        let errorMessage = 'Failed to add capper';
+        try {
+          const errorData = await response.text();
+          console.error('Capper creation error response:', errorData);
+          // Try to parse as JSON to get structured error
+          const jsonError = JSON.parse(errorData);
+          errorMessage = jsonError.error || jsonError.message || errorData;
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
