@@ -306,10 +306,10 @@ export async function POST(request: NextRequest) {
       capper_id: targetCapperId,
       whop_experience_id: experience_id,
       sport,
-      league,
+      league: league || null,
       bet_type,
       description,
-      reasoning,
+      reasoning: reasoning || null,
       confidence,
       recommended_odds_american,
       recommended_odds_decimal,
@@ -318,9 +318,9 @@ export async function POST(request: NextRequest) {
       access_tier: access_tier || 'public',
       is_premium: is_premium || false,
       price,
-      game_time,
-      expires_at,
-      tags
+      game_time: game_time || null,
+      expires_at: expires_at || null,
+      tags: tags || null
     };
     console.log('Pick data:', JSON.stringify(pickData, null, 2));
     
