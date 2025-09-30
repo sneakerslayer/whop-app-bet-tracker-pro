@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, setRLSContext } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
@@ -13,6 +13,9 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Set RLS context for multi-tenant security
+    await setRLSContext(whop_user_id, experience_id);
 
     // First, get or create the user
     let { data: user, error: userError } = await supabase
