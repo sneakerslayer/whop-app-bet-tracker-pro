@@ -341,8 +341,9 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error creating pick:', error);
+      console.error('Pick data that failed:', JSON.stringify(pickData, null, 2));
       return NextResponse.json(
-        { error: 'Failed to create pick' },
+        { error: 'Failed to create pick', details: error.message },
         { status: 500 }
       );
     }

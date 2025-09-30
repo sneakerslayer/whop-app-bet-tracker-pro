@@ -549,12 +549,12 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
         capper_id: capperId, // Only include if admin posting for specific capper
         whop_user_id: currentUser.whop_user_id,
         experience_id: currentUser.experience_id,
-        recommended_odds_american: parseInt(pickForm.recommended_odds_american) || null,
-        recommended_units: parseFloat(pickForm.recommended_units.toString()),
-        confidence: parseInt(pickForm.confidence.toString()),
+        recommended_odds_american: pickForm.recommended_odds_american ? parseInt(pickForm.recommended_odds_american) : null,
+        recommended_units: parseFloat(pickForm.recommended_units.toString()) || 1,
+        confidence: parseInt(pickForm.confidence.toString()) || 5,
         max_bet_amount: pickForm.max_bet_amount ? parseFloat(pickForm.max_bet_amount) : null,
         price: pickForm.price ? parseFloat(pickForm.price) : null,
-        tags: pickForm.tags ? pickForm.tags.split(',').map(t => t.trim()) : []
+        tags: pickForm.tags ? pickForm.tags.split(',').map(t => t.trim()).filter(t => t.length > 0) : []
       };
       console.log('Posting pick with data:', requestData);
       
@@ -567,14 +567,18 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
       });
 
       if (!response.ok) {
-        const errorData = await response.text();
-        console.error('Pick posting error:', errorData);
+        let errorMessage = 'Failed to post pick';
         try {
+          const errorData = await response.text();
+          console.error('Pick posting error response:', errorData);
+          // Try to parse as JSON to get structured error
           const jsonError = JSON.parse(errorData);
-          throw new Error(jsonError.error || 'Failed to post pick');
-        } catch {
-          throw new Error(`Failed to post pick: ${errorData}`);
+          errorMessage = jsonError.error || jsonError.message || errorData;
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
