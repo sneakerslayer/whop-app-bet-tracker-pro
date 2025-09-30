@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   TrendingUp, TrendingDown, Target, DollarSign, Flame, Crown,
   Plus, BarChart3, Trophy, Filter, Loader2, AlertCircle, CheckCircle,
-  Users, Star, Wallet, Settings, Eye, Heart, Share2, Clock, Award, X
+  Users, Star, Wallet, Settings, Eye, Share2, Clock, Award, X
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 
@@ -2059,7 +2059,6 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                         <div className="flex items-center gap-4 text-sm text-gray-400">
                           <span>Confidence: {pick.confidence}/10</span>
                           <span>Units: {pick.recommended_units}</span>
-                          <span>Follows: {pick.follows}</span>
                           <span>Views: {pick.views}</span>
                         </div>
                       </div>
@@ -2071,10 +2070,6 @@ export default function BetTrackerPro({ userId, experienceId }: BetTrackerProPro
                           {new Date(pick.posted_at).toLocaleDateString()}
                         </div>
                         <div className="flex gap-2 mt-2">
-                          <Button size="sm" variant="outline">
-                            <Heart className="h-3 w-3 mr-1" />
-                            Follow
-                          </Button>
                           <Button 
                             size="sm" 
                             className="bg-green-600 hover:bg-green-700 text-white"
